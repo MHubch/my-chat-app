@@ -52,3 +52,4 @@ io.on('connection', (socket) => {
 server.listen(3000, () => {
   console.log('Сервер запущено на http://localhost:3000');
 });
+// Test CI/CD: Added comment for workflow test
