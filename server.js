@@ -7,25 +7,48 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Головна сторінка — просто HTML з чатом
+const CHAT_FILE = 'chat_log.txt';
+
+// Дозволяємо приймати JSON
+app.use(express.json());
+
+// Головна сторінка — HTML з чатом
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
 });
 
-// Логіка чату
+// Видалити повідомлення за текстом
+app.delete('/messages', (req, res) => {
+  const { text } = req.body;
+  if (!text) return res.status(400).send({ error: 'No text provided' });
+
+  try {
+    if (fs.existsSync(CHAT_FILE)) {
+      const messages = fs.readFileSync(CHAT_FILE, 'utf8').split('\n');
+      const filtered = messages.filter(msg => msg.trim() !== text.trim());
+      fs.writeFileSync(CHAT_FILE, filtered.join('\n'), 'utf8');
+      res.send({ success: true });
+    } else {
+      res.status(404).send({ error: 'Chat file not found' });
+    }
+  } catch (err) {
+    console.error('Помилка при видаленні повідомлення:', err);
+    res.status(500).send({ error: 'Internal server error' });
+  }
+});
+
+// Socket.IO: логіка чату
 io.on('connection', (socket) => {
   console.log('Користувач підключився');
 
   // Надсилаємо історію чату новому користувачу
   try {
-    if (fs.existsSync('chat_log.txt')) {
-      const history = fs.readFileSync('chat_log.txt', 'utf8').split('\n').filter(line => line);
+    if (fs.existsSync(CHAT_FILE)) {
+      const history = fs.readFileSync(CHAT_FILE, 'utf8').split('\n').filter(line => line);
       history.forEach((msg) => {
         socket.emit('chat message', msg);
       });
       console.log('Історія чату надіслана користувачу');
-    } else {
-      console.log('Файл chat_log.txt ще не існує');
     }
   } catch (err) {
     console.error('Помилка при зчитуванні історії чату:', err);
@@ -35,9 +58,8 @@ io.on('connection', (socket) => {
   socket.on('chat message', (msg) => {
     console.log('Отримано повідомлення:', msg);
     try {
-      fs.appendFileSync('chat_log.txt', `${new Date().toISOString()}: ${msg}\n`, 'utf8');
-      console.log('Повідомлення збережено у chat_log.txt');
-      io.emit('chat message', msg);
+      fs.appendFileSync(CHAT_FILE, `${msg}\n`, 'utf8'); // записуємо повідомлення
+      io.emit('chat message', msg); // надсилаємо всім
     } catch (err) {
       console.error('Помилка при записі у файл:', err);
     }
@@ -52,4 +74,3 @@ io.on('connection', (socket) => {
 server.listen(3000, () => {
   console.log('Сервер запущено на http://localhost:3000');
 });
-// Test CI/CD: Added comment for workflow test

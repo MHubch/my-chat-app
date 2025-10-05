@@ -5,28 +5,19 @@
   <style>
     body { font-family: Arial; }
     #messages { list-style-type: none; margin: 0; padding: 0; }
-    #messages li { padding: 5px 10px; position: relative; }
+    #messages li { padding: 5px 10px; display: flex; justify-content: space-between; align-items: center; }
     #messages li:nth-child(odd) { background: #eee; }
-    form { display: flex; margin-top: 10px; }
+    button.delete { margin-left: 10px; }
+    form { display: flex; }
     input { flex: 1; padding: 10px; }
-    button { padding: 10px; }
-    .delete-btn {
-      position: absolute;
-      right: 10px;
-      top: 5px;
-      cursor: pointer;
-      color: red;
-      border: none;
-      background: transparent;
-      font-weight: bold;
-    }
+    button.send { padding: 10px; }
   </style>
 </head>
 <body>
   <ul id="messages"></ul>
   <form id="form" action="">
     <input id="input" autocomplete="off" placeholder="Введи повідомлення..." />
-    <button>Надіслати</button>
+    <button class="send">Надіслати</button>
   </form>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -37,6 +28,7 @@
     const input = document.getElementById('input');
     const messages = document.getElementById('messages');
 
+    // Надсилання нового повідомлення
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       if (input.value) {
@@ -45,48 +37,45 @@
       }
     });
 
-    function addMessage(msg) {
-      const item = document.createElement('li');
-      item.textContent = msg;
-
-      // Додаємо кнопку видалення
-      const deleteBtn = document.createElement('button');
-      deleteBtn.textContent = '❌';
-      deleteBtn.className = 'delete-btn';
-      deleteBtn.onclick = async () => {
-        try {
-          await fetch('/messages', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: msg })
-          });
-          item.remove(); // прибираємо повідомлення з DOM
-        } catch (err) {
-          alert('Не вдалося видалити повідомлення');
-          console.error(err);
-        }
-      };
-      item.appendChild(deleteBtn);
-
-      messages.appendChild(item);
-      window.scrollTo(0, document.body.scrollHeight);
-    }
-
+    // Додавання повідомлення на сторінку
     socket.on('chat message', (msg) => {
       addMessage(msg);
     });
 
-    // Оновлення чату після видалення повідомлень
-    socket.on('chat updated', () => {
-      // перезавантажити всі повідомлення
-      messages.innerHTML = '';
-      fetch('/messages')
-        .then(res => res.json())
-        .then(data => {
-          data.forEach(addMessage);
-        })
-        .catch(err => console.error(err));
-    });
+    // Функція для додавання повідомлення у список із кнопкою "Видалити"
+    function addMessage(msg) {
+      const item = document.createElement('li');
+      const textSpan = document.createElement('span');
+      textSpan.textContent = msg;
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = 'Видалити';
+      deleteBtn.className = 'delete';
+      deleteBtn.addEventListener('click', () => deleteMessage(msg, item));
+
+      item.appendChild(textSpan);
+      item.appendChild(deleteBtn);
+      messages.appendChild(item);
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+
+    // Функція видалення повідомлення
+    function deleteMessage(msg, element) {
+      fetch('/messages', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: msg })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          element.remove();
+        } else {
+          alert('Не вдалося видалити повідомлення');
+        }
+      })
+      .catch(err => console.error(err));
+    }
   </script>
 </body>
 </html>
