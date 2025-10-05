@@ -5,11 +5,21 @@
   <style>
     body { font-family: Arial; }
     #messages { list-style-type: none; margin: 0; padding: 0; }
-    #messages li { padding: 5px 10px; }
+    #messages li { padding: 5px 10px; position: relative; }
     #messages li:nth-child(odd) { background: #eee; }
-    form { display: flex; }
+    form { display: flex; margin-top: 10px; }
     input { flex: 1; padding: 10px; }
     button { padding: 10px; }
+    .delete-btn {
+      position: absolute;
+      right: 10px;
+      top: 5px;
+      cursor: pointer;
+      color: red;
+      border: none;
+      background: transparent;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -35,11 +45,47 @@
       }
     });
 
-    socket.on('chat message', (msg) => {
+    function addMessage(msg) {
       const item = document.createElement('li');
       item.textContent = msg;
+
+      // Додаємо кнопку видалення
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = '❌';
+      deleteBtn.className = 'delete-btn';
+      deleteBtn.onclick = async () => {
+        try {
+          await fetch('/messages', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: msg })
+          });
+          item.remove(); // прибираємо повідомлення з DOM
+        } catch (err) {
+          alert('Не вдалося видалити повідомлення');
+          console.error(err);
+        }
+      };
+      item.appendChild(deleteBtn);
+
       messages.appendChild(item);
       window.scrollTo(0, document.body.scrollHeight);
+    }
+
+    socket.on('chat message', (msg) => {
+      addMessage(msg);
+    });
+
+    // Оновлення чату після видалення повідомлень
+    socket.on('chat updated', () => {
+      // перезавантажити всі повідомлення
+      messages.innerHTML = '';
+      fetch('/messages')
+        .then(res => res.json())
+        .then(data => {
+          data.forEach(addMessage);
+        })
+        .catch(err => console.error(err));
     });
   </script>
 </body>
